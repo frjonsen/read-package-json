@@ -1,4 +1,5 @@
-stages: build
+stages:
+  - build
 
 rust-nightly:
   stage: build
