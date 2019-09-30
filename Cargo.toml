@@ -1,0 +1,17 @@
+[package]
+name = "read-package-json"
+version = "0.1.0"
+authors = ["Fredrik Jonsén <fredrik@jonsen.se>"]
+edition = "2018"
+license = "MIT"
+repository = "https://github.com/frjonsen/read-package-json"
+description = "Utility for parsing an NPM package.json file"
+keywords = ["npm", "package.json"]
+categories = ["development-tools", "parsing", "web-programming"]
+
+
+[dependencies]
+log = "0.4"
+semver = {version = "0.9.0", features = ["serde"] }
+serde =  { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
