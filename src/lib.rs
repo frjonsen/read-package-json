@@ -1,11 +1,40 @@
-use serde::{Serialize, Deserialize};
-use std::error::Error;
+use serde::{
+    de::{self, Visitor, MapAccess},
+    Serialize,
+    Deserialize, Deserializer};
 use crate::PackageJsonError::ParseError;
+use void::Void;
+use std::marker::PhantomData;
+use std::str::FromStr;
+use std::fmt;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Default)]
+pub struct Issues {
+    pub url: Option<url::Url>,
+    pub email: Option<String>
+}
+
+impl FromStr for Issues {
+    type Err = Void;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Issues {
+            url: Some(url::Url::from_str(s).unwrap()),
+            email: None
+        })
+    }
+}
+
+#[derive(Default, Serialize, Deserialize, Debug)]
+#[serde(default)]
 pub struct PackageJson {
-    pub name: Option<String>,
-    pub version: Option<semver::Version>
+    pub name: String,
+    pub version: Option<semver::Version>,
+    pub description: String,
+    pub keywords: std::vec::Vec<String>,
+    pub homepage: Option<url::Url>,
+    #[serde(deserialize_with = "url_or_struct")]
+    pub bugs: Option<Issues>
 }
 
 #[derive(Debug, Clone)]
@@ -32,5 +61,32 @@ impl std::error::Error for PackageJsonError {
 
 pub fn parse_contents(contents: &str) -> Result<PackageJson, PackageJsonError> {
     serde_json::from_str(&contents)
-        .map_err(|r| PackageJsonError::ParseError(r.description().to_owned()))
+        .map_err(|r| PackageJsonError::ParseError(r.to_string().to_owned()))
+}
+
+fn url_or_struct<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+where T: Deserialize<'de> + FromStr<Err = Void>, D: Deserializer<'de> {
+    struct StringOrStruct<T>(PhantomData<fn() -> T>);
+    
+    impl<'de, T> Visitor<'de> for StringOrStruct<T>
+        where T: Deserialize<'de> + FromStr<Err = Void>
+    {
+        type Value = T;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("string or map")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<T, E> where E: de::Error {
+            Ok(FromStr::from_str(value).unwrap())
+        }
+
+        fn visit_map<M>(self, map: M) -> Result<T, M::Error> where M: MapAccess<'de> {
+            Deserialize::deserialize(de::value::MapAccessDeserializer::new(map))
+        }
+    }
+    let deserialized =
+    deserializer.deserialize_any(StringOrStruct(PhantomData));
+    deserialized.map(|r| Some(r))
+
 }
