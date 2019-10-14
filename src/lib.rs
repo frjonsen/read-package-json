@@ -3,7 +3,6 @@ use serde::{
     Serialize,
     Deserialize, Deserializer};
 use crate::PackageJsonError::ParseError;
-use void::Void;
 use std::marker::PhantomData;
 use std::str::FromStr;
 use std::fmt;
@@ -15,11 +14,11 @@ pub struct Issues {
 }
 
 impl FromStr for Issues {
-    type Err = Void;
+    type Err = url::ParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Issues {
-            url: Some(url::Url::from_str(s).unwrap()),
+        url::Url::from_str(s).map(|u| Issues {
+            url: Some(u),
             email: None
         })
     }
@@ -33,7 +32,7 @@ pub struct PackageJson {
     pub description: String,
     pub keywords: std::vec::Vec<String>,
     pub homepage: Option<url::Url>,
-    #[serde(deserialize_with = "url_or_struct")]
+    #[serde(deserialize_with = "string_or_struct")]
     pub bugs: Option<Issues>
 }
 
@@ -64,12 +63,12 @@ pub fn parse_contents(contents: &str) -> Result<PackageJson, PackageJsonError> {
         .map_err(|r| PackageJsonError::ParseError(r.to_string().to_owned()))
 }
 
-fn url_or_struct<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
-where T: Deserialize<'de> + FromStr<Err = Void>, D: Deserializer<'de> {
+fn string_or_struct<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+where T: Deserialize<'de> + FromStr<Err = url::ParseError>, D: Deserializer<'de> {
     struct StringOrStruct<T>(PhantomData<fn() -> T>);
     
     impl<'de, T> Visitor<'de> for StringOrStruct<T>
-        where T: Deserialize<'de> + FromStr<Err = Void>
+        where T: Deserialize<'de> + FromStr<Err = url::ParseError>
     {
         type Value = T;
 
@@ -85,8 +84,6 @@ where T: Deserialize<'de> + FromStr<Err = Void>, D: Deserializer<'de> {
             Deserialize::deserialize(de::value::MapAccessDeserializer::new(map))
         }
     }
-    let deserialized =
-    deserializer.deserialize_any(StringOrStruct(PhantomData));
+    let deserialized = deserializer.deserialize_any(StringOrStruct(PhantomData));
     deserialized.map(|r| Some(r))
-
 }
