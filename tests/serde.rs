@@ -28,28 +28,52 @@ fn deserialize_missing_name() {
 fn deserialize_bugs_string() {
     let json = r#"{"bugs": "https://github.com/owner/project/issues"}"#;
     let res = parse_contents(json).unwrap();
-    assert_eq!(res.bugs.unwrap().url.unwrap().to_string(), "https://github.com/owner/project/issues");
+    assert_eq!(
+        res.bugs.unwrap().url.unwrap(),
+        url::Url::parse("https://github.com/owner/project/issues").unwrap()
+    );
 }
-/*
+
 #[test]
-fn deserialize_bugs_object() {
+fn derserialize_bugs_object() {
     let json = r#"{"bugs": {
         "url": "https://github.com/owner/project/issues",
         "email": "project@hostname.com"
     }}"#;
-    match parse_contents(json) {
-        Ok(res) => {
-            let bugs = res.bugs.unwrap();
-            if let OrString::T(i) = bugs {
-                assert_eq!(i.email.unwrap(), "project@hostname.com");
-                assert_eq!(i.url.unwrap(), url::Url::parse("https://github.com/owner/project/issues").unwrap());
-            } else {
-                panic!("Enum is or wrong type")
-            }           
-        },
-        Err(e) => {
-            println!("{:?}", e)
-        }
-    }
+    let res = parse_contents(json).unwrap();
+    let bugs = res.bugs.unwrap();
+    let url = bugs.url.unwrap();
+    let email = bugs.email.unwrap();
+    assert_eq!(url, url::Url::parse("https://github.com/owner/project/issues").unwrap());
+    assert_eq!(email, "project@hostname.com");
 }
-*/
+
+#[test]
+fn deserialize_author_only_name() {
+    let json = r#"{
+        "author": {
+            "name": "An Author"
+    }}"#;
+    let res = parse_contents(json).unwrap();
+    let author = res.author.unwrap();
+    assert_eq!(author.name, "An Author");
+    assert!(author.email.is_none());
+    assert!(author.url.is_none());
+}
+
+#[test]
+fn deserialize_author_full_object() {
+    let json = r#"{
+        "author": {
+            "name": "An Author",
+            "url": "http://example.com",
+            "email": "project@hostname.com"
+    }}"#;
+    let res = parse_contents(json).unwrap();
+    let author = res.author.unwrap();
+    assert_eq!(author.name, "An Author");
+    assert_eq!(author.email.unwrap(), "project@hostname.com");
+    //println!("{:?}", author.url.unwrap().as_str());
+    assert_eq!(author.url.unwrap(), url::Url::parse("http://example.com").unwrap());
+}
+
