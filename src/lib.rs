@@ -32,7 +32,7 @@ pub struct PackageJson {
     pub description: String,
     pub keywords: std::vec::Vec<String>,
     pub homepage: Option<url::Url>,
-    #[serde(deserialize_with = "string_or_struct")]
+    #[serde(deserialize_with = "optional_string_or_struct")]
     pub bugs: Option<Issues>
 }
 
@@ -63,11 +63,11 @@ pub fn parse_contents(contents: &str) -> Result<PackageJson, PackageJsonError> {
         .map_err(|r| PackageJsonError::ParseError(r.to_string().to_owned()))
 }
 
-fn string_or_struct<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+fn optional_string_or_struct<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
 where T: Deserialize<'de> + FromStr<Err = url::ParseError>, D: Deserializer<'de> {
-    struct StringOrStruct<T>(PhantomData<fn() -> T>);
+    struct OptionalStringOrStruct<T>(PhantomData<fn() -> T>);
     
-    impl<'de, T> Visitor<'de> for StringOrStruct<T>
+    impl<'de, T> Visitor<'de> for OptionalStringOrStruct<T>
         where T: Deserialize<'de> + FromStr<Err = url::ParseError>
     {
         type Value = T;
@@ -84,6 +84,6 @@ where T: Deserialize<'de> + FromStr<Err = url::ParseError>, D: Deserializer<'de>
             Deserialize::deserialize(de::value::MapAccessDeserializer::new(map))
         }
     }
-    let deserialized = deserializer.deserialize_any(StringOrStruct(PhantomData));
+    let deserialized = deserializer.deserialize_any(OptionalStringOrStruct(PhantomData));
     deserialized.map(|r| Some(r))
 }
